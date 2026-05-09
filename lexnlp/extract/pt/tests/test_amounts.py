@@ -85,6 +85,17 @@ class TestTextToNumber(TestCase):
         self.assertEqual(Decimal(16), text_to_number("dezasseis"))
         self.assertEqual(Decimal(19), text_to_number("dezanove"))
 
+    def test_pre_acordo_ortografico_cinquenta(self):
+        """``cinqüenta`` (with trema) is the pre-1990-Acordo spelling."""
+        self.assertEqual(Decimal(50), text_to_number("cinqüenta"))
+        # Combined with units it still composes correctly.
+        self.assertEqual(Decimal(57), text_to_number("cinqüenta e sete"))
+        # Inside a larger phrase.
+        self.assertEqual(
+            Decimal(2_350_000),
+            text_to_number("dois milhões trezentos e cinqüenta mil"),
+        )
+
 
 class TestGetAmountAnnotations(TestCase):
     def test_extracts_numeric_with_multiplier(self):

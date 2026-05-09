@@ -66,7 +66,10 @@ _TENS = {
     "vinte": 20,
     "trinta": 30,
     "quarenta": 40,
-    "cinquenta": 50, "cincoenta": 50,  # legacy spelling
+    # ``cinqüenta`` is the pre-1990-Acordo-Ortográfico spelling (with
+    # trema), still common in older Brazilian legal documents and OCR;
+    # ``cincoenta`` is an older popular variant.
+    "cinquenta": 50, "cinqüenta": 50, "cincoenta": 50,
     "sessenta": 60,
     "setenta": 70,
     "oitenta": 80,

@@ -28,25 +28,40 @@ import regex as re
 from lexnlp.extract.common.annotations.phone_annotation import PhoneAnnotation
 
 # Brazilian phone number formats:
-#   ``+55 11 91234-5678`` (international prefix + DDD + mobile 9-digit)
-#   ``(11) 91234-5678``    (DDD in parens + 9-digit mobile)
-#   ``11 1234-5678``       (DDD + 8-digit landline)
-#   ``0800 123 4567``      (toll-free)
-# We accept variable separators (space, dot, hyphen) between the DDD and
-# the body. ``9`` as the leading mobile digit is optional so legacy
-# 8-digit numbers (residential) still match.
+#   ``+55 11 91234-5678``   (international prefix + DDD + 9-digit mobile)
+#   ``(11) 91234-5678``      (DDD in parens + 9-digit mobile)
+#   ``11 1234-5678``         (DDD + 8-digit landline)
+#   ``(0XX11) 1234-5678``    (legacy operator-selection placeholder
+#                            from the late-1990s telecom deregulation)
+#   ``0 32 11 1234-5678``    (legacy operator-selection with explicit
+#                            carrier code, e.g. 32 = Embratel)
+#   ``1234-5678``            (legacy 8-digit local without DDD,
+#                            requires an explicit dash to keep false
+#                            positives in check)
+#   ``234-5678``             (legacy 7-digit local without DDD,
+#                            also dash-anchored)
+#   ``0800 123 4567``        (toll-free)
 PHONE_PTN_RE = re.compile(
-    r"(?<!\d)"
+    r"(?<![\d-])"
     r"(?P<phone>"
-    r"(?:\+?55[\s.-]?)?"  # optional country code
-    r"(?:\(0?\d{2}\)|0?\d{2})"  # DDD with or without parens
+    # Format 1: full DDD form. Allows the optional ``+55`` country code
+    # OR a legacy ``0XX`` / ``0<digits>`` operator-selection prefix.
+    r"(?:\+?55[\s.-]?|0(?:[Xx]{2}|\d{2,3})[\s.-]?)?"
+    # DDD: with parens (optionally embedding the operator prefix, e.g.
+    # ``(0XX11)``) or bare two digits (with optional leading 0).
+    r"(?:\(\s*(?:0(?:[Xx]{2}|\d{2,3}))?\s*0?\d{2}\s*\)|0?\d{2})"
     r"[\s.-]?"
-    r"9?\d{4}"  # 8- or 9-digit body, leading "9" optional
+    r"9?\d{4}"  # 8- or 9-digit body, leading ``9`` optional
     r"[\s.-]?"
     r"\d{4}"
-    r"|0800[\s.-]?\d{3}[\s.-]?\d{3,4}"  # 0800 toll-free
+    # Format 2: 0800 toll-free.
+    r"|0800[\s.-]?\d{3}[\s.-]?\d{3,4}"
+    # Format 3: legacy 8-digit local without DDD (mandatory dash).
+    r"|\d{4}-\d{4}"
+    # Format 4: legacy 7-digit local without DDD (mandatory dash).
+    r"|\d{3}-\d{4}"
     r")"
-    r"(?!\d)"
+    r"(?![\d-])"
 )
 
 # Pragmatic email regex — matches the vast majority of legitimate
@@ -74,7 +89,14 @@ def get_phone_annotations(text: str) -> Iterator[PhoneAnnotation]:
     for match in PHONE_PTN_RE.finditer(text):
         surface = match.group("phone")
         digits = _digits_only(surface)
-        if len(digits) not in (10, 11, 12, 13):
+        # Accepted lengths cover (in order):
+        #   7  -> legacy 7-digit local (NNN-NNNN);
+        #   8  -> legacy 8-digit local (NNNN-NNNN) and post-2002 landline;
+        #   10 -> DDD + 8-digit landline;
+        #   11 -> DDD + 9-digit mobile;
+        #   12 -> 55 + DDD + 8 digits OR operator-prefix 0NN + DDD + 8;
+        #   13 -> 55 + DDD + 9 digits OR operator-prefix 0NN + DDD + 9.
+        if len(digits) not in (7, 8, 10, 11, 12, 13):
             continue
         yield PhoneAnnotation(
             coords=match.span("phone"),

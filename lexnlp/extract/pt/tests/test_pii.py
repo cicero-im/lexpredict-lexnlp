@@ -50,6 +50,36 @@ class TestPtPhones(TestCase):
     def test_no_phone_in_plain_text(self):
         self.assertEqual([], get_phone_list("Sem telefones aqui."))
 
+    def test_legacy_8_digit_local_without_ddd(self):
+        """Pre-2012 8-digit landline without DDD (``1234-5678``)."""
+        text = "Telefone do escritório: 1234-5678."
+        ants = get_phone_annotation_list(text)
+        self.assertEqual(1, len(ants))
+        self.assertEqual("12345678", ants[0].phone)
+
+    def test_legacy_7_digit_local_without_ddd(self):
+        """Pre-2002 7-digit local number (``234-5678``)."""
+        text = "Antigo número: 234-5678."
+        ants = get_phone_annotation_list(text)
+        self.assertEqual(1, len(ants))
+        self.assertEqual("2345678", ants[0].phone)
+
+    def test_oxx_operator_placeholder(self):
+        """``0XX11 1234-5678`` — late-1990s telecom-deregulation prefix."""
+        text = "Ligar (0XX11) 1234-5678 a partir de outra cidade."
+        ants = get_phone_annotation_list(text)
+        self.assertEqual(1, len(ants))
+        # Digits captured: "0xx" -> stripped, leaving "11" + "12345678".
+        # The exact normalisation depends on the regex, but the surface
+        # form must be preserved on the annotation.
+        self.assertIn("0XX11", ants[0].text)
+
+    def test_explicit_operator_code_prefix(self):
+        """``0 32 11 1234-5678`` — explicit carrier code (32 = Embratel)."""
+        text = "Discar 032 11 1234-5678 para atendimento interurbano."
+        ants = get_phone_annotation_list(text)
+        self.assertEqual(1, len(ants))
+
 
 class TestPtEmails(TestCase):
     def test_extracts_simple_email(self):
