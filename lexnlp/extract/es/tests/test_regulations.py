@@ -161,6 +161,16 @@ class TestRegulationsParserDataFrameInjection:
         assert len(matches) == 1
         assert matches[0].group("full") == "apartado 2 del art. 14"
 
+    def test_parser_suppresses_nested_article_inside_paragraph_leading(self):
+        """``apartado 2 del art. 14`` must NOT also yield a separate ``art. 14``."""
+        text = "Aplica el apartado 2 del art. 14 de la norma."
+        regs = list(parser.parse(text))
+        names = [r.name for r in regs]
+        assert "apartado 2 del art. 14" in names
+        # ``art. 14`` is nested inside the paragraph-leading span, so it must
+        # not be emitted on its own.
+        assert "art. 14" not in names
+
     def test_constitutional_reference(self):
         text = "Según la Constitución Española de 1978."
         matches = list(CONSTITUTIONAL_REF_RE.finditer(text))
@@ -180,9 +190,12 @@ class TestRegulationsParserDataFrameInjection:
             " los plazos se actualizan."
         )
         regs = list(parser.parse(text))
-        names = [r.name for r in regs]
-        # Formal citation must always appear:
-        assert any("Real Decreto 123/2020" in n for n in names)
+        # The trigger phrase ("ley de protección Real Decreto 123/2020 vigente")
+        # fully contains the formal citation, so it must be dropped — only the
+        # canonical "Real Decreto 123/2020" should survive.
+        assert len(regs) == 1
+        assert regs[0].name == "Real Decreto 123/2020"
+        assert regs[0].text == "Real Decreto 123/2020"
 
     def test_empty_dataframe_means_no_triggers_no_csv_load(self):
         """

@@ -165,17 +165,25 @@ class RegulationsParser:
             yield self._annotate(surface, match.span("full"), surface, locale)
 
     def _parse_article_references(self, text: str, locale: str) -> Generator[RegulationAnnotation]:
-        seen_spans: set[tuple[int, int]] = set()
-        for match in ARTICLE_REFERENCE_RE.finditer(text):
-            surface = match.group("full")
-            span = match.span("full")
-            seen_spans.add(span)
-            yield self._annotate(surface, span, surface, locale)
+        # Materialise paragraph-leading spans first so we can suppress
+        # ``art. N`` matches that are nested inside an ``apartado N del art. N``
+        # span — otherwise the same article number would be emitted twice
+        # (once on its own and once as part of the paragraph-leading citation).
+        para_spans: list[tuple[int, int]] = []
+        para_matches: list[tuple[tuple[int, int], str]] = []
         for match in PARAGRAPH_LEADING_REFERENCE_RE.finditer(text):
             span = match.span("full")
-            if span in seen_spans:
+            para_spans.append(span)
+            para_matches.append((span, match.group("full")))
+
+        for match in ARTICLE_REFERENCE_RE.finditer(text):
+            span = match.span("full")
+            if any(ps <= span[0] and span[1] <= pe for ps, pe in para_spans):
                 continue
             surface = match.group("full")
+            yield self._annotate(surface, span, surface, locale)
+
+        for span, surface in para_matches:
             yield self._annotate(surface, span, surface, locale)
 
     def _parse_constitutional(self, text: str, locale: str) -> Generator[RegulationAnnotation]:
