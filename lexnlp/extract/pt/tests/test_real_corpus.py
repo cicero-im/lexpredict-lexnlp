@@ -73,9 +73,9 @@ class TestLeiAcessoInformacao(TestCase):
 
     def test_dates_extraction_is_sane(self):
         """
-        Verify date extraction yields a sufficient number of annotations and that every extracted year is between 1980 and 2025 inclusive.
+        Verify date extraction yields a sufficient number of annotations and that every extracted year falls in a realistic legislative range.
 
-        Materializes date annotations from the LAI corpus with `strict=False`, asserts more than 10 annotations are found, and asserts all annotation `date.year` values are within the inclusive range 1980–2025.
+        Materializes date annotations from the LAI corpus with `strict=False`, asserts more than 10 annotations are found, and asserts all annotation `date.year` values are within the inclusive range 1980 to ``datetime.date.today().year + 1`` (computed at runtime so the test does not bit-rot at year-end).
         """
         dates = list(get_date_annotations(self.text, strict=False))
         self.assertGreater(len(dates), 10)

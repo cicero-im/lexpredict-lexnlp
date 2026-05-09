@@ -141,20 +141,23 @@ class PortugueseParsingMethods:
     def match_pt_def_by_parenthesised_label(phrase: str) -> list[PatternFound]:
         """Match Brazilian-contract parenthesised quoted labels like ``(o "Contratante")``.
 
-        Each match is reported with the quoted label as the defined name and
-        the surrounding parenthesised group as the surface form. ``ou``-joined
-        alternatives (``(o "Locador" ou "Locatário")``) all share the same
-        coordinates because they belong to the same definition cue.
+        Each quoted label is reported as a separate :class:`PatternFound`
+        whose ``name`` is the unquoted label text. ``ou``-joined alternatives
+        (``(o "Locador" ou "Locatário")``) yield one :class:`PatternFound`
+        per quoted alternative, all sharing the same start/end coordinates
+        of the surrounding parenthesised group.
         """
         results: list[PatternFound] = []
         for match in PortugueseParsingMethods.reg_parenthesised_label.finditer(phrase):
             start, end = match.span()
-            entry = PatternFound()
-            entry.name = "parenthesised_label"
-            entry.start = start
-            entry.end = end
-            entry.probability = 85
-            results.append(entry)
+            labels = re.findall(r'"([^"]+)"', match.group(0))
+            for label in labels:
+                entry = PatternFound()
+                entry.name = label.strip()
+                entry.start = start
+                entry.end = end
+                entry.probability = 85
+                results.append(entry)
         return results
 
     @staticmethod

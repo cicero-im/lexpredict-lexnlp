@@ -10,6 +10,7 @@ from unittest import TestCase
 
 from lexnlp.extract.common.annotations.definition_annotation import DefinitionAnnotation
 from lexnlp.extract.pt.definitions import (
+    PortugueseParsingMethods,
     get_definition_annotation_list,
     get_definition_annotations,
     make_pt_definitions_parser,
@@ -77,3 +78,39 @@ class TestParsePortugueseDefinitions(TestCase):
             "lexnlp/typed_annotations/pt/definition/definitions.txt",
             DefinitionAnnotation,
         )
+
+
+class TestParenthesisedLabelMatcher(TestCase):
+    """Coverage for ``match_pt_def_by_parenthesised_label``."""
+
+    def test_single_parenthesised_label(self):
+        phrase = 'Empresa X (o "Contratante") celebra este contrato.'
+        results = PortugueseParsingMethods.match_pt_def_by_parenthesised_label(phrase)
+        self.assertEqual(1, len(results))
+        entry = results[0]
+        self.assertEqual("Contratante", entry.name)
+        self.assertEqual(85, entry.probability)
+        # span must wrap the parenthesised group
+        self.assertEqual('(o "Contratante")', phrase[entry.start:entry.end])
+
+    def test_ou_joined_alternatives_share_coords(self):
+        phrase = 'As partes (o "Locador" ou "Locatário") concordam.'
+        results = PortugueseParsingMethods.match_pt_def_by_parenthesised_label(phrase)
+        self.assertEqual(2, len(results))
+        names = sorted(r.name for r in results)
+        self.assertEqual(["Locador", "Locatário"], names)
+        # Both entries share the same surface coordinates.
+        self.assertEqual(results[0].start, results[1].start)
+        self.assertEqual(results[0].end, results[1].end)
+
+    def test_no_match(self):
+        phrase = "Sem rótulo entre parênteses aqui."
+        self.assertEqual(
+            [], PortugueseParsingMethods.match_pt_def_by_parenthesised_label(phrase)
+        )
+
+    def test_multiple_parenthesised_groups(self):
+        phrase = '(o "Comprador") e mais tarde (a "Vendedora").'
+        results = PortugueseParsingMethods.match_pt_def_by_parenthesised_label(phrase)
+        self.assertEqual(2, len(results))
+        self.assertEqual({"Comprador", "Vendedora"}, {r.name for r in results})

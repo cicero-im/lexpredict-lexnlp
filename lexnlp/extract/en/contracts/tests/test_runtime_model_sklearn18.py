@@ -80,7 +80,11 @@ def test_pipeline_round_trips_via_skops(
 
     # Redirect the catalog to a writable temp dir so we don't touch the user's
     # ``~/.lexnlp/`` cache during tests.
+    original_catalog = catalog_mod.CATALOG
+    original_runtime_catalog = getattr(runtime_model, "CATALOG", None)
     catalog_mod.CATALOG = tmp_path
+    # type: ignore[attr-defined] - runtime_model.CATALOG is set dynamically and may not be
+    # declared in stubs; the test writes/restores it explicitly.
     runtime_model.CATALOG = tmp_path  # type: ignore[attr-defined]
     try:
         destination, wrote = write_pipeline_to_catalog(
@@ -89,8 +93,9 @@ def test_pipeline_round_trips_via_skops(
             force=True,
         )
     finally:
-        # Restore by reloading the module-level CATALOG resolution.
-        catalog_mod.CATALOG = catalog_mod._resolve_catalog_dir()
+        catalog_mod.CATALOG = original_catalog
+        if original_runtime_catalog is not None:
+            runtime_model.CATALOG = original_runtime_catalog
 
     assert wrote is True
     assert destination.exists()

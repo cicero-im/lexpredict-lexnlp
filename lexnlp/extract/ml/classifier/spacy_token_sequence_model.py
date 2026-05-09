@@ -8,10 +8,14 @@ __email__ = "support@contraxsuite.com"
 
 import os
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 import numpy
 
 from lexnlp.extract.ml.classifier.base_token_sequence_classifier_model import BaseTokenSequenceClassifierModel
+
+if TYPE_CHECKING:
+    from spacy.language import Language
 
 MODULE_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -31,7 +35,7 @@ def _resolve_spacy_model_name() -> str:
 
 
 @lru_cache(maxsize=4)
-def _load_spacy_pipeline(model_name: str | None = None):
+def _load_spacy_pipeline(model_name: str | None = None) -> "Language":
     """Return a cached spaCy ``Language`` pipeline.
 
     Raises ``ImportError`` (with an actionable message) if the optional
@@ -65,7 +69,7 @@ def _NLP_EN():  # noqa: N802 - matches the previous module-global name
 # Preserve the historical attribute name as a callable proxy. ``NLP_EN(text)``
 # triggers the lazy load on first invocation while ``NLP_EN`` continues to be
 # importable from this module.
-NLP_EN = lambda text: _load_spacy_pipeline(DEFAULT_SPACY_MODEL)(text)  # noqa: E731
+NLP_EN = lambda text: _load_spacy_pipeline(DEFAULT_SPACY_MODEL)(text)  # noqa: E731 - keeps the historical ``NLP_EN(text)`` callable API while deferring spaCy import to first use
 
 
 # TODO: Refactor to support multiple languages

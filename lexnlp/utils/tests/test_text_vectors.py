@@ -183,7 +183,15 @@ class TestVectorizedLowerStringDType(TestCase):
 
 
 class TestVectorizedStripStringDType(TestCase):
-    def test_strips_unicode_whitespace(self):
+    def test_preserves_length_no_crash_on_unicode_whitespace(self):
+        """Vectorized strip must accept Unicode whitespace without crashing.
+
+        Whether ``\\u3000`` (ideographic space) is stripped depends on the
+        underlying NumPy ``vectorize_strip`` implementation, which has changed
+        between releases. We therefore only assert shape preservation here;
+        ASCII whitespace stripping is exercised by ``test_mixed_length_strings``
+        below.
+        """
         result = vectorized_strip(["\u3000foo\u3000", "bar"])
         # \u3000 is an ideographic space — strip should handle it
         # Result may or may not strip non-ASCII whitespace depending on

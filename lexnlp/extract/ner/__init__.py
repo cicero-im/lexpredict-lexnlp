@@ -146,36 +146,31 @@ def _nltk_extract(text: str) -> list[HybridNERMatch]:
     stack.
     """
 
-    from nltk import ne_chunk, pos_tag, word_tokenize  # local: keep import-free top
+    # ``TreebankWordTokenizer.span_tokenize`` returns the surface-form
+    # ``(start, end)`` offsets directly, sidestepping the
+    # ``word_tokenize`` / ``text.find`` mismatch that occurs whenever the
+    # tokenizer normalises characters (e.g. ``"`` -> `` `` `` / ``''``).
+    from nltk import ne_chunk, pos_tag
+    from nltk.tokenize import TreebankWordTokenizer
 
-    tokens = list(word_tokenize(text))
-    if not tokens:
+    tokenizer = TreebankWordTokenizer()
+    spans = list(tokenizer.span_tokenize(text))
+    if not spans:
         return []
+    tokens = [text[s:e] for s, e in spans]
     tagged = pos_tag(tokens)
     tree = ne_chunk(tagged, binary=False)
 
     matches: list[HybridNERMatch] = []
-    cursor = 0
+    token_idx = 0
     for chunk in tree:
-        # Sub-tree => named entity (label_, [(token, pos), ...])
         if hasattr(chunk, "label"):
-            entity_tokens = [tok for tok, _pos in chunk.leaves()]
-            if not entity_tokens:
+            num_leaves = len(chunk.leaves())
+            if num_leaves == 0 or token_idx + num_leaves > len(spans):
+                token_idx += num_leaves
                 continue
-            # Walk forward from the cursor to find the surface span.
-            start = text.find(entity_tokens[0], cursor)
-            if start == -1:
-                continue
-            end = start
-            local_cursor = start
-            for tok in entity_tokens:
-                idx = text.find(tok, local_cursor)
-                if idx == -1:
-                    end = local_cursor
-                    break
-                local_cursor = idx + len(tok)
-                end = local_cursor
-            cursor = end
+            start = spans[token_idx][0]
+            end = spans[token_idx + num_leaves - 1][1]
             matches.append(
                 HybridNERMatch(
                     start=start,
@@ -185,13 +180,9 @@ def _nltk_extract(text: str) -> list[HybridNERMatch]:
                     backend="nltk",
                 )
             )
+            token_idx += num_leaves
         else:
-            # Plain tagged token; advance the cursor past it so the next NE
-            # search starts at or after this token's surface form.
-            tok = chunk[0]
-            idx = text.find(tok, cursor)
-            if idx != -1:
-                cursor = idx + len(tok)
+            token_idx += 1
     return matches
 
 

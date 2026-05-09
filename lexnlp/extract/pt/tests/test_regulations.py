@@ -11,7 +11,12 @@ from unittest import TestCase
 import pandas as pd
 
 from lexnlp.extract.common.annotations.regulation_annotation import RegulationAnnotation
-from lexnlp.extract.pt.regulations import RegulationsParser, get_regulation_annotations, parser
+from lexnlp.extract.pt.regulations import (
+    PARAGRAPH_LEADING_REFERENCE_RE,
+    RegulationsParser,
+    get_regulation_annotations,
+    parser,
+)
 from lexnlp.tests.typed_annotations_tests import TypedAnnotationsTester
 
 
@@ -71,6 +76,39 @@ class TestRegulationsParserDataFrameInjection(TestCase):
         p = RegulationsParser(regulations_dataframe=custom_df)
         self.assertIn("lei", p.start_triggers)
         self.assertIn("decreto", p.start_triggers)
+
+    def test_paragraph_leading_paragrafo(self):
+        """``§ 2º do art. 14`` is captured by PARAGRAPH_LEADING_REFERENCE_RE."""
+        text = "Conforme § 2º do art. 14, deve-se proceder."
+        matches = list(PARAGRAPH_LEADING_REFERENCE_RE.finditer(text))
+        self.assertEqual(1, len(matches))
+        self.assertEqual("§ 2º do art. 14", matches[0].group("full"))
+
+    def test_paragraph_leading_inciso(self):
+        """``inciso II do art. 5º`` is captured."""
+        text = "Vide inciso II do art. 5º da norma."
+        matches = list(PARAGRAPH_LEADING_REFERENCE_RE.finditer(text))
+        self.assertEqual(1, len(matches))
+        self.assertEqual("inciso II do art. 5º", matches[0].group("full"))
+
+    def test_paragraph_leading_alinea(self):
+        """``alínea a do art. 12`` is captured."""
+        text = "Vide alínea a do art. 12 do regulamento."
+        matches = list(PARAGRAPH_LEADING_REFERENCE_RE.finditer(text))
+        self.assertEqual(1, len(matches))
+        self.assertEqual("alínea a do art. 12", matches[0].group("full"))
+
+    def test_paragraph_leading_via_parser(self):
+        """The parser surfaces paragraph-leading citations as RegulationAnnotations."""
+        text = (
+            "Aplica-se o § 2º do art. 14 da norma. "
+            "Bem como inciso II do art. 5º e alínea a do art. 12."
+        )
+        regs = list(parser.parse(text))
+        names = [r.name for r in regs]
+        self.assertIn("§ 2º do art. 14", names)
+        self.assertIn("inciso II do art. 5º", names)
+        self.assertIn("alínea a do art. 12", names)
 
     def test_custom_dataframe_non_start_rows_are_excluded(self):
         """

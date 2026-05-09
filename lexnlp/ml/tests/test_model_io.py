@@ -422,7 +422,7 @@ class TestLoadLegacyAdditional:
         """
         path = tmp_path / "corrupt.pickle"
         path.write_bytes(b"not a pickle and not a joblib file")
-        with pytest.raises(Exception):
+        with pytest.raises(pickle.UnpicklingError):
             _load_legacy(path)
 
     def test_joblib_compress_0_round_trips_via_pickle_extension(

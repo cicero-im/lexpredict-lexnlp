@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 __author__ = "ContraxSuite, LLC; LexPredict, LLC"
 __copyright__ = "Copyright 2015-2021, ContraxSuite, LLC"
 __license__ = "https://github.com/LexPredict/lexpredict-lexnlp/blob/2.3.0/LICENSE"
@@ -139,13 +141,13 @@ class TestFuzzyCountryMaxResultsBoundary:
         import pytest
 
         with pytest.raises(TypeError, match="max_results must be an int"):
-            fuzzy_country("United", max_results=1.5)  # type: ignore[arg-type]
+            fuzzy_country("United", max_results=cast(Any, 1.5))
         with pytest.raises(TypeError, match="max_results must be an int"):
-            fuzzy_country("United", max_results="1")  # type: ignore[arg-type]
+            fuzzy_country("United", max_results=cast(Any, "1"))
         with pytest.raises(TypeError, match="max_results must be an int"):
             # ``bool`` is a subclass of ``int``; reject it explicitly so callers
             # don't accidentally pass ``True`` and silently slice to 1.
-            fuzzy_country("United", max_results=True)  # type: ignore[arg-type]
+            fuzzy_country("United", max_results=cast(Any, True))
 
     def test_returns_tuple_not_list(self) -> None:
         """Return type must be tuple, not list, to satisfy the type signature."""

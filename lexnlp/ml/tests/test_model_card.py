@@ -130,11 +130,14 @@ class TestModelCardMetadataValidation(TestCase):
             ModelCardMetadata()  # type: ignore[call-arg]
 
     def test_frozen(self) -> None:
+        import dataclasses
+
         md = ModelCardMetadata(description="x", license="", authors="")
-        with self.assertRaises((AttributeError, Exception)):
-            # type: ignore[misc] — intentionally mutating a frozen dataclass
-            # attribute to assert immutability is enforced at runtime.
-            md.description = "changed"  # type: ignore[misc]
+        # ``dataclasses.FrozenInstanceError`` is the precise exception raised
+        # when assigning to a frozen dataclass attribute. Use ``setattr`` to
+        # exercise the runtime path without needing a type-checker suppression.
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            setattr(md, "description", "changed")
 
     def test_tags_default_is_empty_tuple(self) -> None:
         md = ModelCardMetadata(description="x")

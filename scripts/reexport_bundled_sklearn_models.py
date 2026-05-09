@@ -237,8 +237,18 @@ def _sanitize_pandas_indices(obj, _seen: set[int] | None = None):
             else:
                 _sanitize_pandas_indices(value, _seen)
         return obj
-    if isinstance(obj, (list, set)):
-        for item in list(obj):
+    if isinstance(obj, list):
+        for i, item in enumerate(obj):
+            if isinstance(item, _pd.Index):
+                obj[i] = list(item)
+            else:
+                _sanitize_pandas_indices(item, _seen)
+        return obj
+    if isinstance(obj, (set, tuple)):
+        # Tuples and sets are immutable / unordered respectively, so we can't
+        # rewrite a contained ``pd.Index`` in place. Recurse into each item
+        # so any mutable sub-objects are still sanitized.
+        for item in obj:
             _sanitize_pandas_indices(item, _seen)
         return obj
 
@@ -253,9 +263,6 @@ def _sanitize_pandas_indices(obj, _seen: set[int] | None = None):
                     setattr(obj, key, list(value))
                 else:
                     _sanitize_pandas_indices(value, _seen)
-    if hasattr(obj, "steps"):
-        for _, step in obj.steps:
-            _sanitize_pandas_indices(step, _seen)
     return obj
 
 
@@ -290,8 +297,11 @@ def main(argv: Sequence[str]) -> int:
             )
             extra = ""
             if args.remove_legacy:
-                path.unlink()
-                extra = " removed-legacy=yes"
+                if target.exists():
+                    path.unlink()
+                    extra = " removed-legacy=yes"
+                else:
+                    extra = " removed-legacy=SKIPPED (target missing)"
             print(
                 f"reexport: {path} -> {target} legacy_warnings before={before} "
                 f"after={after}{extra}"
