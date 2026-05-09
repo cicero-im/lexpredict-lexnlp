@@ -97,21 +97,23 @@ def _digits(value: str) -> str:
 def _steuer_idnr_is_valid(digits: str) -> bool:
     """ISO/IEC 7064 ``MOD 11, 10`` check on a 10-digit body.
 
-    Per § 139b AO the Steuer-IdNr also requires that one digit appears
-    exactly twice or three times (in the new "Konsolidierte Variante");
-    we keep that runtime invariant in addition to the checksum to weed
-    out trivially-incorrect numbers.
+    Per § 139b AO the Steuer-IdNr also requires that exactly one digit
+    appears either twice or three times (Konsolidierte Variante, 2016)
+    and all other digits appear at most once; we keep that runtime
+    invariant in addition to the checksum to weed out trivially-incorrect
+    numbers. The Bundeszentralamt für Steuern also forbids a leading
+    zero, so we reject those up front.
     """
-    if len(digits) != 11 or digits == digits[0] * 11:
+    if len(digits) != 11 or digits[0] == "0" or digits == digits[0] * 11:
         return False
     body, check = digits[:10], int(digits[10])
 
-    # Repeat-digit invariant per Bundeszentralamt für Steuern. In the
-    # legacy variant exactly one digit appears twice, all others once.
-    # Since 2016 (KonsiNr) one digit may appear twice and a *different*
-    # digit may appear three times. Reject the rest.
+    # Repeat-digit invariant per Bundeszentralamt für Steuern. Exactly
+    # one digit in the 10-digit body appears twice (legacy variant) or
+    # three times (new variant since 2016); every other digit appears
+    # exactly once. Reject anything else.
     counts = sorted([body.count(c) for c in set(body)], reverse=True)
-    if counts not in ([2, 1, 1, 1, 1, 1, 1, 1, 1], [3, 2, 1, 1, 1, 1, 1]):
+    if counts not in ([2, 1, 1, 1, 1, 1, 1, 1, 1], [3, 1, 1, 1, 1, 1, 1, 1]):
         return False
 
     product = 10

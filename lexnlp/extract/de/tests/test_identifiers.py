@@ -46,6 +46,10 @@ class TestSteuerIdnrValidator(TestCase):
         # "1122334560" has 1, 2 and 3 each appearing twice.
         self.assertFalse(_steuer_idnr_is_valid("11223345607"))
 
+    def test_leading_zero_rejected(self):
+        # BZSt rule: the Steuer-IdNr cannot start with a zero.
+        self.assertFalse(_steuer_idnr_is_valid("0" + VALID_IDNR[1:]))
+
 
 class TestUstIdnrValidator(TestCase):
     def test_valid_ust(self):

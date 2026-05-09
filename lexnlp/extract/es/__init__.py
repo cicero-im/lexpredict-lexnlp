@@ -22,6 +22,12 @@ from lexnlp.extract.es.identifiers import (
     get_nie_annotations,
     get_nif_annotations,
 )
+from lexnlp.extract.es.regulations import (
+    get_regulation_annotation_list,
+    get_regulation_annotations,
+    get_regulation_list,
+    get_regulations,
+)
 
 __all__ = [
     "EsIdentifierMatch",
@@ -30,4 +36,8 @@ __all__ = [
     "get_identifier_annotations",
     "get_nie_annotations",
     "get_nif_annotations",
+    "get_regulation_annotation_list",
+    "get_regulation_annotations",
+    "get_regulation_list",
+    "get_regulations",
 ]

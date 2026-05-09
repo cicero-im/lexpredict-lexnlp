@@ -157,7 +157,12 @@ def _nltk_extract(text: str) -> list[HybridNERMatch]:
     spans = list(tokenizer.span_tokenize(text))
     if not spans:
         return []
-    tokens = [text[s:e] for s, e in spans]
+    # ``tokenize`` and ``span_tokenize`` are guaranteed to be aligned
+    # one-to-one. Use the *normalised* tokens (e.g. ``"`` -> `` `` `` /
+    # ``''``) for the NLP pipeline because the tagger / chunker were
+    # trained on normalised input, and use the spans for character
+    # offsets in the final matches.
+    tokens = tokenizer.tokenize(text)
     tagged = pos_tag(tokens)
     tree = ne_chunk(tagged, binary=False)
 
