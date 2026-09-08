@@ -56,9 +56,7 @@ _CURRENCY_NAME_TO_CODE: dict[str, str] = {
 }
 
 _CURRENCY_CODE_RE_PART = "|".join(sorted({"BRL", "USD", "EUR", "GBP", "JPY", "CNY"}))
-_CURRENCY_NAME_RE_PART = "|".join(
-    sorted(_CURRENCY_NAME_TO_CODE.keys(), key=len, reverse=True)
-)
+_CURRENCY_NAME_RE_PART = "|".join(sorted(_CURRENCY_NAME_TO_CODE.keys(), key=len, reverse=True))
 _CURRENCY_SYMBOL_RE_PART = "R\\$|US\\$|\\$|€|£|¥"
 
 # Brazilian numeric pattern: optional thousands "." groups, optional decimal ","
@@ -96,9 +94,7 @@ def _normalize_currency(token: str) -> str:
     return token.upper()
 
 
-def get_money_annotations(
-    text: str, float_digits: int = 4
-) -> Iterator[MoneyAnnotation]:
+def get_money_annotations(text: str, float_digits: int = 4) -> Iterator[MoneyAnnotation]:
     """Yield :class:`MoneyAnnotation` for every monetary expression in *text*.
 
     Order: prefix-form matches first (``R$ 100``), then suffix-form
@@ -109,7 +105,8 @@ def get_money_annotations(
     for match in _MONEY_PREFIX_RE.finditer(text):
         span = match.span("text")
         if span in seen_spans:
-            continue
+            # finditer yields distinct non-overlapping spans, so a repeat is impossible.
+            continue  # pragma: no cover
         seen_spans.add(span)
         amount = _parse_pt_number(match.group("num"))
         if float_digits is not None:
@@ -153,9 +150,7 @@ def get_money(text: str, float_digits: int = 4) -> Iterator[dict]:
         }
 
 
-def get_money_annotation_list(
-    text: str, float_digits: int = 4
-) -> list[MoneyAnnotation]:
+def get_money_annotation_list(text: str, float_digits: int = 4) -> list[MoneyAnnotation]:
     """Return all money annotations in *text* as a list."""
     return list(get_money_annotations(text, float_digits))
 

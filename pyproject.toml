@@ -4,7 +4,7 @@
 # owned by Astral (same vendor as ``uv`` and ``ruff``) so the toolchain
 # stays consistent.
 [build-system]
-requires = ["uv_build>=0.9.0,<0.10.0"]
+requires = ["uv_build>=0.9.0,<0.12.0"]
 build-backend = "uv_build"
 
 [project]
@@ -39,37 +39,46 @@ classifiers = [
   "Programming Language :: Python :: 3.14"
 ]
 dependencies = [
-  "beautifulsoup4>=4.12",
-  "cloudpickle>=3.0",
-  "dateparser>=1.2",
-  "elasticsearch>=8.15",
-  "gensim>=4.3.3",
-  "joblib>=1.4",
-  "lxml>=5.3",
-  "nltk>=3.9",
-  "num2words>=0.5.13",
+  "beautifulsoup4>=4.12,<5",
+  "cloudpickle>=3.0,<4",
+  "dateparser>=1.2,<2",
+  "elasticsearch>=8.17,<10",
+  "gensim>=4.3.3,<5",
+  "joblib>=1.5,<2",
+  "lxml>=5.3,<7",
+  "nltk>=3.10.3,<4",
+  "num2words>=0.5.13,<1",
   "numpy>=2.3,<3",
   "pandas>=2.2.0,<3",
-  "psutil>=6",
-  "pycountry>=23",
-  "python-dateutil>=2.9",
+  "psutil>=6,<8",
+  "pycountry>=24.6.1,<27",
+  "python-dateutil>=2.9,<3",
   "regex>=2024.0",
-  "reporters-db>=3.2.61",
-  "requests>=2.32",
-  "scikit-learn>=1.5",
-  "scipy>=1.11.0",
-  "skops>=0.11",
-  "tqdm>=4.67",
-  "Unidecode>=1.4",
-  "us>=2.0.2",
-  "zahlwort2num>=0.4.3"
+  "reporters-db>=3.2.61,<4",
+  "requests>=2.32,<3",
+  "scikit-learn>=1.5,<2",
+  "scipy>=1.13,<2",
+  "skops>=0.11,<1",
+  "tqdm>=4.67,<5",
+  "Unidecode>=1.4,<2",
+  "us>=2.0.2,<4",
+  "zahlwort2num>=0.4.3,<1"
 ]
+
+[project.urls]
+Homepage = "https://github.com/LexPredict/lexpredict-lexnlp"
+Documentation = "https://lexpredict-lexnlp.readthedocs.io/"
+Repository = "https://github.com/LexPredict/lexpredict-lexnlp"
+Issues = "https://github.com/LexPredict/lexpredict-lexnlp/issues"
 
 [project.optional-dependencies]
 test = [
   "pytest>=8.3.0",
   "pytest-cov>=5.0.0",
   "pytest-xdist>=3.6.0",
+  # Exercises the pyarrow dtype-backend path in lexnlp.utils.pandas_config,
+  # which was otherwise skipped for want of the optional dependency.
+  "pyarrow>=17",
 ]
 dev = [
   "pytest>=8.3.0",
@@ -82,6 +91,13 @@ dev = [
   "pylint>=3.3.0",
   "sphinx>=7.4.0",
   "twine>=5.1.1",
+]
+docs = [
+  "sphinx>=7.4.0",
+  "sphinx-rtd-theme>=3.0",
+]
+audit = [
+  "pip-audit>=2.7",
 ]
 stanford = []
 tika = ["tika>=2.6.0"]
@@ -246,6 +262,31 @@ implicit-optional = "error"
 # Generator signatures are still mixed; keep as warn while we migrate the
 # tail of Generator[T] annotations to Iterator[T].
 invalid-type-form = "warn"
+
+[tool.coverage.run]
+# The measured surface is the shipped source, not the tests that exercise it.
+source = ["lexnlp", "scripts", "ci"]
+omit = [
+  "*/tests/*",
+  "*/test_*.py",
+]
+
+[tool.coverage.report]
+# The suite covers every reachable statement. Anything that drops below this is
+# a gap someone introduced, not a target to negotiate down.
+fail_under = 100
+show_missing = true
+skip_covered = true
+exclude_also = [
+  # Never executed on import, and covering it means running the file as a
+  # script under a runpy harness, which tests the harness rather than the code.
+  'if __name__ == "__main__":',
+  # Evaluated by type checkers only.
+  "if TYPE_CHECKING:",
+  # Abstract declarations have no body to exercise.
+  "raise NotImplementedError",
+  "@(abc\\.)?abstractmethod",
+]
 
 [tool.pytest.ini_options]
 markers = [

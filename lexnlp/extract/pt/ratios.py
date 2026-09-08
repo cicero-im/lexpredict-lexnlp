@@ -27,14 +27,16 @@ from lexnlp.extract.pt.amounts import NUM_PTN, _parse_pt_number  # noqa: PLC2701
 RATIO_PTN_RE = re.compile(
     rf"(?P<text>(?P<left>{NUM_PTN})\s*"
     rf"(?:para|por|:|/|-)\s*"
-    rf"(?P<right>{NUM_PTN}))(?!\s*[ap]\.?m(?:\W|$))",
+    # ``(?!\d)`` stops the engine backtracking the right operand to a shorter
+    # number purely to escape the clock-time guard below. Without it,
+    # "10:30 a.m." matches as 10/3, because dropping the "0" moves "a.m."
+    # out of the lookahead's reach.
+    rf"(?P<right>{NUM_PTN})(?!\d))(?!\s*[ap]\.?m(?:\W|$))",
     re.IGNORECASE | re.MULTILINE | re.UNICODE,
 )
 
 
-def get_ratio_annotations(
-    text: str, float_digits: int = 4
-) -> Iterator[RatioAnnotation]:
+def get_ratio_annotations(text: str, float_digits: int = 4) -> Iterator[RatioAnnotation]:
     """Yield :class:`RatioAnnotation` for every ratio expression in *text*.
 
     The ratio is computed as ``left / right`` and stored alongside the
@@ -73,9 +75,7 @@ def get_ratios(
             yield ant.left, ant.right, ant.ratio
 
 
-def get_ratio_annotation_list(
-    text: str, float_digits: int = 4
-) -> list[RatioAnnotation]:
+def get_ratio_annotation_list(text: str, float_digits: int = 4) -> list[RatioAnnotation]:
     """Return all ratio annotations in *text* as a list."""
     return list(get_ratio_annotations(text, float_digits))
 

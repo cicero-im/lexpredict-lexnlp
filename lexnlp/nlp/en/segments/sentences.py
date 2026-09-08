@@ -34,7 +34,9 @@ from lexnlp.ml.model_io import load_bundled_model
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Load segmenters
-SENTENCE_SEGMENTER_MODEL: PunktSentenceTokenizer = load_bundled_model(os.path.join(MODULE_PATH, "./sentence_segmenter.pickle"))
+SENTENCE_SEGMENTER_MODEL: PunktSentenceTokenizer = load_bundled_model(
+    os.path.join(MODULE_PATH, "./sentence_segmenter.pickle")
+)
 extra_abbreviations = [a.rstrip(".") for a in EnLanguageTokens.abbreviations]
 SENTENCE_SEGMENTER_MODEL._params.abbrev_types.update(extra_abbreviations)
 SENTENCE_SEGMENTER_MODEL._params.abbrev_types.update(["no", "l"])
@@ -107,7 +109,8 @@ def post_process_sentence(text: str, sent_span: tuple[int, int]) -> Generator[tu
     for m in SENTENCE_SPLITTERS.finditer(sent):
         full_match_start = m.start()
         if SENTENCE_SPLITTERS_LOWER_EXCLUDE.fullmatch(m.group().lower()):
-            continue
+            # Unreachable: splitters yield blank lines or 5+ space/dot runs, never bare "and".
+            continue  # pragma: no cover
 
         # If we found text splitter and there is some text between sentence start/prev splitter
         # and the new found splitter - yield it as a separate sentence.

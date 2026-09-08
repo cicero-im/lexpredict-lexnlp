@@ -261,7 +261,9 @@ class RegulationsParser:
         for match in PARAGRAPH_LEADING_REFERENCE_RE.finditer(text):
             span = match.span("full")
             if span in seen_spans:
-                continue
+                # ARTICLE_REFERENCE_RE spans start with "art" while paragraph-leading
+                # spans start with §/parágrafo/inciso/alínea, so equal spans are impossible.
+                continue  # pragma: no cover
             surface = match.group("full")
             yield self._annotate(surface, span, surface, locale)
 
@@ -384,9 +386,9 @@ def get_regulation_list(text: str, language: str | None = None) -> list[dict]:
 
 __all__ = [
     "ARTICLE_REFERENCE_RE",
-    "PARAGRAPH_LEADING_REFERENCE_RE",
     "CONSTITUTIONAL_REF_RE",
     "FORMAL_CITATION_RE",
+    "PARAGRAPH_LEADING_REFERENCE_RE",
     "RegulationsParser",
     "get_regulation_annotation_list",
     "get_regulation_annotations",
