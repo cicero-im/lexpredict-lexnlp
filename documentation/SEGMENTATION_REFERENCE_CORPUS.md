@@ -102,6 +102,36 @@ its output carries an alphanumeric stream **identical to `span_clean` on all
 of them are substantial (130,033 and 27,355 stream characters); most of the rest
 are the near-empty scans of §3.1 colliding on an empty key.
 
+### 3.4 The reference disagrees with itself — and that is the real ceiling
+
+Those duplicates are an accidental repeatability experiment: the same text was
+certified twice, independently. It does **not** come back the same.
+
+Over the 29 duplicate pairs with real content, boundary F1 *between the two
+certified copies of the same document*:
+
+| | |
+|---|---|
+| mean | **0.9129** |
+| median | 0.9306 |
+| minimum | **0.5487** (idx 648 vs 837 — 93 cuts against 246) |
+| pairs scoring a perfect 1.0 | **4 of 29** |
+| pairs where *both* copies are `fixed_by: None` | 18 of 29 |
+
+Those 18 matter most: neither copy was touched by a fixing agent, so the
+disagreement is in the **base certification pass itself**, which is therefore
+non-deterministic on this material.
+
+**Consequences.**
+
+- **~0.91, not 1.0, is the practical ceiling.** A candidate scoring 0.91 against
+  this reference is as close to it as it is to itself.
+- The disagreement concentrates on merge-versus-split of inline enumerations,
+  definition runs and signature blocks — precisely the boundary classes of §5.
+  So the merge/split question is not cleanly answerable from these labels.
+- 60 rows are double-counted in every corpus mean.
+- Tuning against these labels below about a point of F1 is fitting label noise.
+
 ---
 
 ## 4. The reference's own granularity is uneven
@@ -176,29 +206,44 @@ evidence that a share of the residual error is reference noise rather than
 segmenter behaviour — no single rule reproduces both, and a segmenter tuned to
 match one is guaranteed to mismatch the other.
 
-**How to use this section.** These are certification choices and artifacts, not
-targets. A segmenter taught to reproduce them would trade precision everywhere
-else for recall on a handful of rows. They put a ceiling below 1.0 on any
-structural segmenter, and that ceiling should be stated whenever a score is
-quoted.
+**How to use this section.** These five are *defects in the reference* — a
+segmenter should not reproduce them, and it should not be marked down for
+refusing to. They are also rare. Do not generalise from them: the fact that the
+reference has bugs is not licence to dismiss the boundaries it gets right, and
+§5 covers a much larger class that is entirely legitimate.
+
+Page furniture is a design rule, not a defect: **page numbers are supposed not to
+appear in the segmented output.** That is why §2's discarded rows exist and why
+the don't-care model is correct. It is also why §4.3 and §4.4 *are* bugs — in one
+the folio was kept as a clause, in the other half a footer was welded onto one.
 
 ---
 
-## 5. The hard ceiling for blank-line paragraphing
+## 5. A third of the reference is inline, marked, and legitimate
 
 Across all **132,412** contiguous certified clause-to-clause joints:
 
-| where the certification cuts | joints | share |
-|---|---|---|
-| at a blank line | 63,039 | 47.6% |
-| at a single newline | 20,557 | 15.5% |
-| **no newline at the cut at all** | **48,816** | **36.9%** |
+| where the certification cuts | joints | share | reachable by line-anchored detection? |
+|---|---|---|---|
+| at a blank line | 63,039 | 47.6% | yes — this is what we get today |
+| at a single newline | 20,557 | 15.5% | partly |
+| **no newline at the cut at all** | **48,816** | **36.9%** | **no** |
 
 (A further 10,452 joints straddle a run of discarded pagination.)
 
-Of the 48,816 no-newline joints, **40,914 (83.8%) begin with a paren marker** —
-`(a)`, `(i)`, `(ii)` run into the middle of a sentence after a comma. Three
-consecutive ones in `idx=227`:
+The 36.9% is the interesting part, and it is **not noise**. Broken down by what
+begins the following clause:
+
+| head of the next clause | joints | of all joints |
+|---|---|---|
+| `(a)` `(i)` `(12)` — paren marker | **35,007** | **26.4%** |
+| `1.` `a.` `iv.` `2.1` — dotted marker | 2,837 | 2.1% |
+| `“Defined Term” means …` | 1,856 | 1.4% |
+| ALL-CAPS heading run in | 928 | 0.7% |
+| other | 8,188 | 6.2% |
+
+**40,628 joints — 30.7% of the entire reference — carry an explicit structural
+marker, mid-line.** Three consecutive ones in `idx=227`:
 
 ```
 prev ends: '..."Investment" means, as to any Person, any acquisition or investment
@@ -208,18 +253,40 @@ next:      '(b) a loan, advance or capital contribution to, Guarantee or assumpt
 next:      '(c) the purchase or other acquisition (in one transaction or a series of ...'
 ```
 
-The entire signal is `, ` or ` or `.
+That is the correct reading of an enumerated definition. A drafter who runs
+`(a)/(b)/(c)` into a sentence has still enumerated three sub-items, and the
+certification is right to cut them. **These are targets, not artifacts.**
 
-**Therefore: 36.9% of the reference is invisible in principle to any detector
-keyed on line structure.** Every marker detector in
-`lexnlp/nlp/en/segments/hierarchy.py` (`_CLAUSE_RE`, `_LIST_RE`,
-`_NUMERIC_HEADING_RE`, `_EXPLICIT_HEADING_RE`) is `^`-anchored and matched per
-line, so none of them can fire mid-line. Reaching this material needs an
-inline scanner, not a regex tweak — and it should be designed against the
-precision cost, since cutting before every mid-sentence `(a)` would shred
-ordinary prose.
+### Why we cannot reach them, and what it would take
 
----
+Every structural detector in `lexnlp/nlp/en/segments/hierarchy.py` —
+`_CLAUSE_RE`, `_LIST_RE`, `_NUMERIC_HEADING_RE`, `_EXPLICIT_HEADING_RE` — is
+`^`-anchored and matched against one line at a time, and the default paragraph
+backend cuts only at blank lines. None of them can fire in the middle of a line.
+So 30.7% of the reference is unreachable *by construction*, and no widening of a
+character class changes that. It needs an **inline enumeration scanner**: a pass
+that looks for markers inside a line, not only at its start.
+
+Two constraints on designing it, both learned the hard way here:
+
+1. **Gate it, or it will shred prose.** Cutting before every mid-sentence `(a)`
+   would break citations (`Section 856(d)(7)`), cross-references, and ordinary
+   parentheticals. The observed left context at real joints is a comma, ` or `,
+   ` and `, a colon, or sentence-terminal punctuation followed by a wide space
+   run — that is the signal to gate on, and it should be measured against the
+   precision cost before it ships.
+2. **Do not derive depth from the marker.** Per the house rule, hierarchy depth
+   comes from the drafter's actual nesting, never from whether a marker reads
+   `(a)`, `(i)` or `Article`. On a single physical line there is no nesting
+   evidence left at all, so sequential same-kind markers should be emitted as
+   siblings rather than given fabricated levels from their column offset.
+
+### The `“Term” means …` gap
+
+1,856 inline joints — and a much larger share of the joints in definition-heavy
+credit agreements — begin with a quoted defined term. There is **no detector for
+this shape at all**, at any anchoring. It is the most common certified clause
+type in that document class and is currently invisible.
 
 ## 6. The `1-ce-5` doc2dict baseline is not comparable
 
@@ -275,8 +342,10 @@ Three rules that make the numbers mean something:
    exactly and the comparison needs no fuzzy alignment.
 2. **Mask the discarded runs** (§2) and **set aside the documents with no
    certified cut** (§3.1). Neither is the segmenter's fault.
-3. **Quote the ceiling with the score.** §4 and §5 mean 1.0 is not the target and
-   never was.
+3. **Quote the reliability ceiling with the score** (§3.4). The reference
+   disagrees with itself at boundary F1 0.913 on byte-identical documents, so
+   ~0.91 — not 1.0 — is the practical target, and differences below a point or
+   so are inside the label noise.
 
 ### Position-independent matching, and why it does not rescue the score
 
