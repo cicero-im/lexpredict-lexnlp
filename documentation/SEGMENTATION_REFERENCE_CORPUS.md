@@ -33,7 +33,7 @@ All 1,066 documents:
 | gaps / overlaps in the offsets | 0 / 0 — 55,867,679 of 55,867,679 chars covered |
 | concatenation rebuilds the source | byte for byte |
 
-Reproduce with `tmp-segmentation/audit_golden_vs_source.py`.
+Reproduce with `tools/segmentation/audit_golden_vs_source.py`.
 
 ---
 
@@ -56,7 +56,7 @@ characters across 981 of the 1,066 documents (92%)**, so the *kept* view
 
 **Consequence for scoring.** A lossless candidate has no choice but to emit that
 pagination somewhere. Scoring it against the kept clauses charges it for text the
-reference declined to have an opinion about. `tmp-segmentation/score_vs_golden.py`
+reference declined to have an opinion about. `tools/segmentation/score_vs_golden.py`
 therefore treats cuts landing *strictly inside* a run of discarded rows as
 don't-care; the edges still count, because "this clause ends where the page number
 begins" is a real segmentation claim. Measured, the correction is small — 1,820 of
@@ -91,10 +91,7 @@ idx=7:  '... ("Buyer").   WHEREAS, Seller and Buyer previously entered into ...'
 Paragraph breaks are three spaces. They hold 10,387 certified clauses (7.2%) and
 4.04M characters, and any blank-line paragrapher scores ~0 on them.
 
-**The structure is not lost — it is in `span_html`.** LexNLP's own
-`lexnlp.extract.common.preprocessing.html_cleaner.html_to_text` recovers it, and
-its output carries an alphanumeric stream **identical to `span_clean` on all
-1,066 documents**, so the golden's boundaries map onto it exactly. See §5.
+**The structure is not lost — it is in `span_html`.** See §3.5.
 
 ### 3.3 Forty-one duplicate groups
 
@@ -131,6 +128,40 @@ non-deterministic on this material.
   So the merge/split question is not cleanly answerable from these labels.
 - 60 rows are double-counted in every corpus mean.
 - Tuning against these labels below about a point of F1 is fitting label noise.
+
+
+
+### 3.5 Recovering the lost structure from the HTML
+
+LexNLP ships its own extractor,
+`lexnlp.extract.common.preprocessing.html_cleaner.html_to_text`. Run over
+`span_html` it recovers the block boundaries, and its output carries an
+alphanumeric stream **identical to `span_clean` on all 1,066 documents**, so the
+golden's boundaries map onto it exactly and the comparison needs no realignment.
+
+One configuration detail decides whether this works at all. The default
+`separator="\n"` joins adjacent nodes with a *single* newline, which yields
+**zero** blank-line runs in 151 of 152 sampled documents — the paragraph backend
+would see one undivided block. `separator="\n\n"` makes every node boundary a
+paragraph boundary.
+
+Reproduce with `tools/segmentation/run_segmenter_html.py`, score with
+`tools/segmentation/score_stream_candidate.py` (the candidate tiles a different
+string, so its rows carry stream offsets). Measured:
+
+| | the 93 flat docs | | the 973 line-structured docs | |
+|---|---|---|---|---|
+| | median F1 | recall | median F1 | clause exact |
+| segmenting `span_clean` | **0.0000** | 0.0018 | **0.6171** | **0.3721** |
+| segmenting `html_to_text(span_html)` | **0.4371** | **0.7116** | 0.4426 | 0.1623 |
+
+So the HTML route rescues the flat documents and *damages* the rest — with
+`separator="\n\n"` every `<br>` and table cell becomes a paragraph, and the
+corpus split rate goes from 6.8% to 42%. Corpus-wide recall still rises 14
+points, so the signal is real and the extraction is too coarse, not wrong.
+Applying it **only** where the clean text has no line structure lifts median
+document F1 from 0.5852 to 0.5914 and clause exact recall from 0.3453 to 0.3505,
+and turns 93 documents from total failure into usable.
 
 ---
 
@@ -319,19 +350,23 @@ documents.** Nothing short of that supports the claim.
 
 ```bash
 # 1. audit the reference itself before trusting it
-tmp-segmentation/audit_golden_vs_source.py \
-    --golden tmp-segmentation/segmented_full_text.jsonl \
-    --source tmp-segmentation/clean_and_html_full_text.jsonl
+tools/segmentation/audit_golden_vs_source.py \
+    --golden <corpus>/segmented_full_text.jsonl \
+    --source <corpus>/clean_and_html_full_text.jsonl
 
 # 2. score a candidate that tiles span_clean
-tmp-segmentation/score_vs_golden.py \
-    --golden    tmp-segmentation/segmented_full_text.jsonl \
+tools/segmentation/score_vs_golden.py \
+    --golden    <corpus>/segmented_full_text.jsonl \
     --candidate <candidate>.jsonl \
-    --source    tmp-segmentation/clean_and_html_full_text.jsonl \
+    --source    <corpus>/clean_and_html_full_text.jsonl \
     --out       <out>.json
 
 # 3. position-free content matching ("is this segment SOME certified clause?")
-tmp-segmentation/score_relaxed.py  --golden ... --candidate ... --source ... --out ...
+tools/segmentation/score_relaxed.py \\
+    --golden    <corpus>/segmented_full_text.jsonl \\
+    --candidate <run>/parse_d2d_v_current_nodes.jsonl \\
+    --source    <corpus>/clean_and_html_full_text.jsonl \\
+    --out       <run>/relaxed.json
 ```
 
 Three rules that make the numbers mean something:
@@ -340,8 +375,10 @@ Three rules that make the numbers mean something:
    alphanumerics. The two vintages disagree about whitespace placement and agree
    about nothing else if you don't; in stream space those differences cancel
    exactly and the comparison needs no fuzzy alignment.
-2. **Mask the discarded runs** (§2) and **set aside the documents with no
-   certified cut** (§3.1). Neither is the segmenter's fault.
+2. **Mask only cuts landing STRICTLY INSIDE a discarded run; the run's two
+   edges stay scorable** (§2), and **set aside documents with no certified
+   cut** (§3.1). Neither is the segmenter's fault. State the rule that precisely
+   — a scorer that also drops the edge cuts produces different numbers.
 3. **Quote the reliability ceiling with the score** (§3.4). The reference
    disagrees with itself at boundary F1 0.913 on byte-identical documents, so
    ~0.91 — not 1.0 — is the practical target, and differences below a point or
