@@ -52,7 +52,13 @@ class MoneyDetector:
             rf"(?P<text>(?P<prefix>{currency_prefixes}|[{currency_symbols}])\s*(?P<amount>{self.curr_num_ptn})|"
             rf"(?P<amount>{self.curr_num_ptn})\s*(?P<postfix>{currency_tokens}|{currency_abbreviations})(?:\W|$)|"
             rf"(?P<amount>{self.curr_num_ptn})\s*(?P<prefix>{currency_prefixes}|[{currency_symbols}])|"
-            rf"(?:\W|^)(?P<trigger_word>{trigger_words})\s[^\d]{{,100}}(?P<amount>\d+(?:\.\d{{1,16}})?))"
+            # The trigger-word branch must use the SAME number sub-pattern as the
+            # branches above. It carried its own `\d+(?:\.\d{1,16})?`, which
+            # cannot span a thousands separator -- and because "price"/"cost"
+            # sit BEFORE the currency symbol, this branch starts further left
+            # and wins the leftmost match, so "The price is $1,500,000.00"
+            # reported 1.0 with the correct currency attached.
+            rf"(?:\W|^)(?P<trigger_word>{trigger_words})\s[^\d]{{,100}}(?P<amount>{self.curr_num_ptn}))"
         )
 
     def get_money(
