@@ -104,6 +104,11 @@ are the near-empty scans of §3.1 colliding on an empty key.
 Those duplicates are an accidental repeatability experiment: the same text was
 certified twice, independently. It does **not** come back the same.
 
+The groups are formed on normalised text (NFKC + casefold + alphanumerics), but
+the duplication is stronger than that: of the 29 pairs with real content, **28
+have byte-identical `span_clean`** and one matches only after normalisation. So
+for 28 pairs the certification saw the identical input twice.
+
 Over the 29 duplicate pairs with real content, boundary F1 *between the two
 certified copies of the same document*:
 
@@ -380,7 +385,8 @@ Three rules that make the numbers mean something:
    cut** (§3.1). Neither is the segmenter's fault. State the rule that precisely
    — a scorer that also drops the edge cuts produces different numbers.
 3. **Quote the reliability ceiling with the score** (§3.4). The reference
-   disagrees with itself at boundary F1 0.913 on byte-identical documents, so
+   disagrees with itself at boundary F1 0.913 on documents it saw twice (28 of
+   the 29 pairs byte-identical, one identical after normalisation), so
    ~0.91 — not 1.0 — is the practical target, and differences below a point or
    so are inside the label noise.
 
